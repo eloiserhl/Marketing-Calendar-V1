@@ -54,7 +54,19 @@
 <div class="modalbg hidden" id="modalBg"><div class="modal"><div class="modalhead"><h3 id="modalTitle">New campaign</h3><button class="btn small" id="modalClose">✕</button></div><form id="modalForm"><div class="modalbody" id="modalBody"></div><div class="modalfoot"><button type="button" class="btn small" id="deleteItem" style="color:#b33">Delete</button><div class="right"><button type="button" class="btn small" id="modalCancel">Cancel</button><button class="btn dark" type="submit">Save</button></div></div></form></div></div>
 <script>
 const KEY='westonMediaPlanner_v2', $=id=>document.getElementById(id), today=new Date();let data=load(),year=today.getFullYear(),monthDate=new Date(today.getFullYear(),today.getMonth(),1),activeCampaign=null,modalMode='',editing=null;
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||{campaigns:[],dates:[],events:[]}}catch{return{campaigns:[],dates:[],events:[]}}}function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}function uid(){return crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())}function esc(s=''){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function d(s){return new Date(s+'T12:00:00')}function fmt(s){return s?d(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'Date not set'}function iso(x){return x.toISOString().slice(0,10)}function daysBetween(a,b){return Math.round((d(b)-d(a))/86400000)}
+function load(){
+ const empty={campaigns:[],dates:[],events:[]};
+ try{
+  const raw=JSON.parse(localStorage.getItem(KEY)||'null');
+  const saved=raw&&raw.data?raw.data:raw;
+  if(!saved||typeof saved!=='object')return empty;
+  return {
+   campaigns:Array.isArray(saved.campaigns)?saved.campaigns.filter(x=>x&&typeof x==='object').map(c=>({...c,sections:Array.isArray(c.sections)?c.sections:defaults()})):[],
+   dates:Array.isArray(saved.dates)?saved.dates.filter(x=>x&&typeof x==='object'&&x.date):[],
+   events:Array.isArray(saved.events)?saved.events.filter(x=>x&&typeof x==='object'&&x.date&& !Number.isNaN(new Date(x.date+'T12:00:00').getTime())):[]
+  };
+ }catch(err){console.error('Planner data could not be loaded:',err);return empty}
+}function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}function uid(){return crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())}function esc(s=''){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function d(s){return new Date(s+'T12:00:00')}function fmt(s){return s?d(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'Date not set'}function iso(x){return x.toISOString().slice(0,10)}function daysBetween(a,b){return Math.round((d(b)-d(a))/86400000)}
 const standardSections=['Campaign description','Location & audience','Social media ideas','Graphics & creative assets','Photography & video','Website requirements','PR & media opportunities','Campaign tasks & notes'];
 function defaults(){return standardSections.map((title,i)=>({id:uid(),title,content:''}))}
 function nav(v){document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id===v+'View'))}
@@ -117,7 +129,7 @@ function renderDates(){
  document.querySelectorAll('[data-dateedit]').forEach(b=>b.onclick=()=>openDate(b.dataset.dateedit));
 }
 function renderUpcoming(){let now=iso(today),future=data.dates.filter(x=>x.date>=now).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);let countdown=[];data.events.forEach(ev=>{[100,50,30,14,7,3,1].forEach(n=>{let dt=iso(new Date(d(ev.date).getTime()-n*86400000));if(dt>=now)countdown.push({date:dt,title:`${n} days to ${ev.name}`,type:'Countdown'})})});let items=[...future,...countdown].filter(x=>x.date>=now).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);$('upcomingCount').textContent=items.length;$('upcoming').innerHTML=items.map(x=>`<div class="upcard"><b>${esc(x.title)}</b><span>${fmt(x.date)} · ${esc(x.type)}</span></div>`).join('')||'<div class="upcard"><b>Nothing upcoming</b><span>Add a key date or event date</span></div>'}
-function render(){ $('campaignCount').textContent=data.campaigns.length;renderMonth();$('dateCount').textContent=data.dates.length;renderYear();renderCampaigns();renderDates();renderUpcoming();if(activeCampaign&&$('detailView').classList.contains('active'))renderDetail()}
+function render(){ data.campaigns=Array.isArray(data.campaigns)?data.campaigns:[];data.dates=Array.isArray(data.dates)?data.dates:[];data.events=Array.isArray(data.events)?data.events.filter(e=>e&&e.date&&!Number.isNaN(new Date(e.date+'T12:00:00').getTime())):[]; $('campaignCount').textContent=data.campaigns.length;renderMonth();$('dateCount').textContent=data.dates.length;renderYear();renderCampaigns();renderDates();renderUpcoming();if(activeCampaign&&$('detailView').classList.contains('active'))renderDetail()}
 $('prevMonth').onclick=()=>{monthDate.setMonth(monthDate.getMonth()-1);renderMonth()};$('nextMonth').onclick=()=>{monthDate.setMonth(monthDate.getMonth()+1);renderMonth()};$('thisMonth').onclick=()=>{monthDate=new Date(today.getFullYear(),today.getMonth(),1);renderMonth()};['showCampaigns','showDates','showCountdowns'].forEach(id=>$(id).onchange=renderMonth);$('monthAddDate').onclick=()=>openDate();$('monthAddCampaign').onclick=()=>openCampaign();$('monthExport').onclick=()=>$('export').click();
 $('addCampaign').onclick=$('yearAdd').onclick=$('campaignAdd2').onclick=()=>openCampaign();$('addDate').onclick=()=>openDate();$('addEvent').onclick=()=>openEvent();$('yearFilter').onchange=renderYear;['dateFilter','eventFilter','companyFilter','dateHorizon'].forEach(id=>$(id).onchange=renderDates);$('prevYear').onclick=()=>{year--;renderYear()};$('nextYear').onclick=()=>{year++;renderYear()};$('thisYear').onclick=()=>{year=today.getFullYear();renderYear()};
 $('backup').onclick=()=>download(JSON.stringify({app:'Weston Marketing & Media Planner',version:2,data},null,2),'Weston-Marketing-Planner-Backup.json','application/json');$('restore').onclick=()=>$('fileIn').click();$('fileIn').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result),v=x.data||x;if(!Array.isArray(v.campaigns)||!Array.isArray(v.dates))throw 0;if(confirm('Import this backup and replace the current planner data?')){data={campaigns:v.campaigns,dates:v.dates,events:v.events||[]};save()}}catch{alert('This does not look like a valid planner backup.')}};r.readAsText(f);e.target.value=''};
@@ -138,5 +150,12 @@ if(document.readyState==='loading'){
 }else{
  initialiseMonthlyCalendar();
 }
+// If a browser-side error still occurs, show a useful message rather than a blank planner.
+window.addEventListener('error',function(event){
+ const grid=document.getElementById('monthGrid');
+ if(grid && !grid.innerHTML.trim()){
+  grid.innerHTML='<div class="empty">The calendar could not finish loading. Your saved data has not been deleted. Please use Backup if available, then send the browser console error to support.</div>';
+ }
+});
 
 </script></body></html>
