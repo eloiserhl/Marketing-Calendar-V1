@@ -123,5 +123,20 @@ $('addCampaign').onclick=$('yearAdd').onclick=$('campaignAdd2').onclick=()=>open
 $('backup').onclick=()=>download(JSON.stringify({app:'Weston Marketing & Media Planner',version:2,data},null,2),'Weston-Marketing-Planner-Backup.json','application/json');$('restore').onclick=()=>$('fileIn').click();$('fileIn').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result),v=x.data||x;if(!Array.isArray(v.campaigns)||!Array.isArray(v.dates))throw 0;if(confirm('Import this backup and replace the current planner data?')){data={campaigns:v.campaigns,dates:v.dates,events:v.events||[]};save()}}catch{alert('This does not look like a valid planner backup.')}};r.readAsText(f);e.target.value=''};
 function download(content,name,type){let a=document.createElement('a'),u=URL.createObjectURL(new Blob([content],{type}));a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}$('export').onclick=()=>{let rows=[['WESTON MARKETING CALENDAR'],['Campaigns'],['Campaign','Start date','End date','Status','Owner','Company / brand','Colour','Overview'],...data.campaigns.map(c=>[c.title,c.start,c.end,c.status,c.owner,c.company,c.color,c.notes]),[],['KEY DATES'],['Date','Key date','Type','Related campaign','Details'],...data.dates.sort((a,b)=>a.date.localeCompare(b.date)).map(x=>[x.date,x.title,x.type,data.campaigns.find(c=>c.id===x.campaignId)?.title||'',x.description])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');download('\ufeff'+csv,'Weston-Marketing-Calendar.csv','text/csv;charset=utf-8')};
 render();
-</script></body></html>
 
+// Startup safeguard: always open on the monthly calendar and paint it on initial load.
+function initialiseMonthlyCalendar(){
+ const monthView=document.getElementById('monthView');
+ if(monthView){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  monthView.classList.add('active');
+ }
+ if(typeof renderMonth==='function') renderMonth();
+}
+if(document.readyState==='loading'){
+ document.addEventListener('DOMContentLoaded',initialiseMonthlyCalendar,{once:true});
+}else{
+ initialiseMonthlyCalendar();
+}
+
+</script></body></html>
